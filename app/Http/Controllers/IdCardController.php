@@ -15,14 +15,19 @@ class IdCardController extends Controller
     /**
      * Show the ID cards list
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $idCards = IdCard::with('createdBy')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $query = IdCard::with('createdBy')->orderBy('created_at', 'desc');
+
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+
+        $idCards = $query->paginate(15);
 
         return Inertia::render('id-cards/index', [
-            'idCards' => $idCards,
+            'idCards'    => $idCards,
+            'department' => $request->department ?? '',
         ]);
     }
 
@@ -40,14 +45,19 @@ class IdCardController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'code' => 'required|string|unique:id_cards,code',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'group' => 'required|string|max:255',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'notes' => 'nullable|string',
+            'code'          => 'required|string|unique:id_cards,code',
+            'first_name'    => 'required|string|max:255',
+            'last_name'     => 'required|string|max:255',
+            'email'         => 'required|email|max:255',
+            'phone'         => 'nullable|string|max:20',
+            'group'         => 'required|string|max:255',
+            'department'    => 'required|in:admin,hr,finance,nurse',
+            'position'      => 'nullable|string|max:255',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_phone'=> 'nullable|string|max:20',
+            'address'       => 'nullable|string',
+            'photo'         => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'notes'         => 'nullable|string',
         ]);
 
         // Handle photo upload
@@ -65,16 +75,21 @@ class IdCardController extends Controller
 
         // Create ID card record
         IdCard::create([
-            'code' => $validated['code'],
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'],
-            'group' => $validated['group'],
-            'photo_path' => $photoPath,
-            'barcode_path' => $barcodePath,
-            'notes' => $validated['notes'],
-            'created_by' => auth()->id(),
+            'code'           => $validated['code'],
+            'first_name'     => $validated['first_name'],
+            'last_name'      => $validated['last_name'],
+            'email'          => $validated['email'],
+            'phone'          => $validated['phone'],
+            'group'          => $validated['group'],
+            'department'     => $validated['department'],
+            'position'       => $validated['position'] ?? null,
+            'guardian_name'  => $validated['guardian_name'] ?? null,
+            'guardian_phone' => $validated['guardian_phone'] ?? null,
+            'address'        => $validated['address'] ?? null,
+            'photo_path'     => $photoPath,
+            'barcode_path'   => $barcodePath,
+            'notes'          => $validated['notes'],
+            'created_by'     => auth()->id(),
         ]);
 
         return redirect()->route('id-cards.index')
@@ -92,12 +107,12 @@ class IdCardController extends Controller
     }
 
     /**
-     * Show the form for editing an ID card
+     * Show the form for editing an ID card (merged with show view)
      */
     public function edit(IdCard $idCard): Response
     {
-        return Inertia::render('id-cards/edit', [
-            'idCard' => $idCard,
+        return Inertia::render('id-cards/show', [
+            'idCard' => $idCard->load('createdBy'),
         ]);
     }
 
@@ -107,37 +122,46 @@ class IdCardController extends Controller
     public function update(Request $request, IdCard $idCard): RedirectResponse
     {
         $validated = $request->validate([
-            'code' => 'required|string|unique:id_cards,code,' . $idCard->id,
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'group' => 'required|string|max:255',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'notes' => 'nullable|string',
+            'code'          => 'required|string|unique:id_cards,code,' . $idCard->id,
+            'first_name'    => 'required|string|max:255',
+            'last_name'     => 'required|string|max:255',
+            'email'         => 'required|email|max:255',
+            'phone'         => 'nullable|string|max:20',
+            'group'         => 'required|string|max:255',
+            'department'    => 'required|in:admin,hr,finance,nurse',
+            'position'      => 'nullable|string|max:255',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_phone'=> 'nullable|string|max:20',
+            'address'       => 'nullable|string',
+            'photo'         => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'barcode'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'signature'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'notes'         => 'nullable|string',
         ]);
 
         // Handle photo upload
         if ($request->hasFile('photo')) {
-            if ($idCard->photo_path) {
-                Storage::disk('public')->delete($idCard->photo_path);
-            }
+            if ($idCard->photo_path) Storage::disk('public')->delete($idCard->photo_path);
             $validated['photo_path'] = $request->file('photo')->store('id-cards/photos', 'public');
         }
 
-        // Regenerate barcode if code changed
-        if ($validated['code'] !== $idCard->code) {
-            if ($idCard->barcode_path) {
-                Storage::disk('public')->delete($idCard->barcode_path);
-            }
-            
+        // Handle manual barcode upload (takes priority over auto-generation)
+        if ($request->hasFile('barcode')) {
+            if ($idCard->barcode_path) Storage::disk('public')->delete($idCard->barcode_path);
+            $validated['barcode_path'] = $request->file('barcode')->store('id-cards/barcodes', 'public');
+        } elseif ($validated['code'] !== $idCard->code) {
+            if ($idCard->barcode_path) Storage::disk('public')->delete($idCard->barcode_path);
             $barcodeGenerator = new BarcodeGeneratorPNG();
-            $barcodeContent = $barcodeGenerator->getBarcode($validated['code'], BarcodeGeneratorPNG::TYPE_CODE_128);
-            
-            $barcodePath = 'id-cards/barcodes/' . uniqid() . '.png';
+            $barcodeContent   = $barcodeGenerator->getBarcode($validated['code'], BarcodeGeneratorPNG::TYPE_CODE_128);
+            $barcodePath      = 'id-cards/barcodes/' . uniqid() . '.png';
             Storage::disk('public')->put($barcodePath, $barcodeContent);
-            
             $validated['barcode_path'] = $barcodePath;
+        }
+
+        // Handle signature upload
+        if ($request->hasFile('signature')) {
+            if ($idCard->signature_path) Storage::disk('public')->delete($idCard->signature_path);
+            $validated['signature_path'] = $request->file('signature')->store('id-cards/signatures', 'public');
         }
 
         $idCard->update($validated);
@@ -151,12 +175,9 @@ class IdCardController extends Controller
      */
     public function destroy(IdCard $idCard): RedirectResponse
     {
-        if ($idCard->photo_path) {
-            Storage::disk('public')->delete($idCard->photo_path);
-        }
-        if ($idCard->barcode_path) {
-            Storage::disk('public')->delete($idCard->barcode_path);
-        }
+        if ($idCard->photo_path) Storage::disk('public')->delete($idCard->photo_path);
+        if ($idCard->barcode_path) Storage::disk('public')->delete($idCard->barcode_path);
+        if ($idCard->signature_path) Storage::disk('public')->delete($idCard->signature_path);
 
         $idCard->delete();
 

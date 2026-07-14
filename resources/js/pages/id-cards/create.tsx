@@ -17,6 +17,8 @@ export default function Create() {
         email: '',
         phone: '',
         group: 'employee',
+        department: 'admin',
+        position: '',
         photo: null as File | null,
         notes: '',
     });
@@ -43,6 +45,8 @@ export default function Create() {
         formData.append('email', data.email);
         formData.append('phone', data.phone);
         formData.append('group', data.group);
+        formData.append('department', data.department);
+        formData.append('position', data.position);
         formData.append('notes', data.notes);
         if (data.photo) {
             formData.append('photo', data.photo);
@@ -130,6 +134,24 @@ export default function Create() {
                             </div>
                         </div>
 
+                        {/* Department */}
+                        <div className="space-y-2">
+                            <Label htmlFor="department">Department *</Label>
+                            <select
+                                id="department"
+                                value={data.department}
+                                onChange={(e) => setData('department', e.target.value)}
+                                disabled={processing}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            >
+                                <option value="admin">Admin</option>
+                                <option value="hr">HR</option>
+                                <option value="finance">Finance</option>
+                                <option value="nurse">Nurse</option>
+                            </select>
+                            <InputError message={errors.department} />
+                        </div>
+
                         {/* Group */}
                         <div className="space-y-2">
                             <Label htmlFor="group">Group / Category *</Label>
@@ -141,6 +163,20 @@ export default function Create() {
                                 disabled={processing}
                             />
                             <InputError message={errors.group} />
+                        </div>
+
+                        {/* Position */}
+                        <div className="space-y-2">
+                            <Label htmlFor="position">Position / Title</Label>
+                            <Input
+                                id="position"
+                                type="text"
+                                value={data.position}
+                                onChange={(e) => setData('position', e.target.value)}
+                                disabled={processing}
+                                placeholder="e.g., Nurse, Staff, Doctor"
+                            />
+                            <InputError message={errors.position} />
                         </div>
 
                         {/* Photo Upload */}
