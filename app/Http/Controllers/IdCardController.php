@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DepartmentTemplate;
 use App\Models\IdCard;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
-use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class IdCardController extends Controller
 {
@@ -66,13 +66,7 @@ class IdCardController extends Controller
             $photoPath = $request->file('photo')->store('id-cards/photos', 'public');
         }
 
-        // Generate barcode
-        $barcodeGenerator = new BarcodeGeneratorPNG();
-        $barcodeContent = $barcodeGenerator->getBarcode($validated['code'], BarcodeGeneratorPNG::TYPE_CODE_128);
-        
-        $barcodePath = 'id-cards/barcodes/' . uniqid() . '.png';
-        Storage::disk('public')->put($barcodePath, $barcodeContent);
-
+        // Barcode is now generated client-side via TEC-IT API (no server-side generation)
         // Create ID card record
         IdCard::create([
             'code'           => $validated['code'],
@@ -87,7 +81,7 @@ class IdCardController extends Controller
             'guardian_phone' => $validated['guardian_phone'] ?? null,
             'address'        => $validated['address'] ?? null,
             'photo_path'     => $photoPath,
-            'barcode_path'   => $barcodePath,
+            'barcode_path'   => null,
             'notes'          => $validated['notes'],
             'created_by'     => auth()->id(),
         ]);
@@ -101,8 +95,10 @@ class IdCardController extends Controller
      */
     public function show(IdCard $idCard): Response
     {
+        $template = DepartmentTemplate::where('department', $idCard->department)->first();
         return Inertia::render('id-cards/show', [
-            'idCard' => $idCard->load('createdBy'),
+            'idCard'   => $idCard->load('createdBy'),
+            'template' => $template,
         ]);
     }
 
@@ -111,8 +107,10 @@ class IdCardController extends Controller
      */
     public function edit(IdCard $idCard): Response
     {
+        $template = DepartmentTemplate::where('department', $idCard->department)->first();
         return Inertia::render('id-cards/show', [
-            'idCard' => $idCard->load('createdBy'),
+            'idCard'   => $idCard->load('createdBy'),
+            'template' => $template,
         ]);
     }
 
@@ -145,17 +143,10 @@ class IdCardController extends Controller
             $validated['photo_path'] = $request->file('photo')->store('id-cards/photos', 'public');
         }
 
-        // Handle manual barcode upload (takes priority over auto-generation)
+        // Handle manual barcode upload (optional override — barcode auto-generated via TEC-IT API client-side)
         if ($request->hasFile('barcode')) {
             if ($idCard->barcode_path) Storage::disk('public')->delete($idCard->barcode_path);
             $validated['barcode_path'] = $request->file('barcode')->store('id-cards/barcodes', 'public');
-        } elseif ($validated['code'] !== $idCard->code) {
-            if ($idCard->barcode_path) Storage::disk('public')->delete($idCard->barcode_path);
-            $barcodeGenerator = new BarcodeGeneratorPNG();
-            $barcodeContent   = $barcodeGenerator->getBarcode($validated['code'], BarcodeGeneratorPNG::TYPE_CODE_128);
-            $barcodePath      = 'id-cards/barcodes/' . uniqid() . '.png';
-            Storage::disk('public')->put($barcodePath, $barcodeContent);
-            $validated['barcode_path'] = $barcodePath;
         }
 
         // Handle signature upload

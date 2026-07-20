@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import Heading from '@/components/heading';
-import { id_cards } from '@/lib/routes-helpers';
+import { id_cards, id_templates } from '@/lib/routes-helpers';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 
@@ -71,9 +71,14 @@ export default function Index({ idCards, department }: Props) {
                             title={department ? `${department.charAt(0).toUpperCase() + department.slice(1)} Department` : 'ID Cards Management'}
                             description="Create, view, and manage ID cards"
                         />
-                        <Link href={id_cards.create()}>
-                            <Button>Create New ID Card</Button>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link href={id_templates.index()}>
+                                <Button variant="outline">Templates</Button>
+                            </Link>
+                            <Link href={id_cards.create()}>
+                                <Button>Create New ID Card</Button>
+                            </Link>
+                        </div>
                     </div>
 
                     {/* Department tabs */}

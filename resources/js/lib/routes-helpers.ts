@@ -7,3 +7,8 @@ export const id_cards = {
     update: (id: number) => `/id-cards/${id}`,
     destroy: (id: number) => `/id-cards/${id}`,
 };
+
+export const id_templates = {
+    index: () => '/id-cards/templates',
+    update: (department: string) => `/id-cards/templates/${department}`,
+};

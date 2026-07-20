@@ -92,12 +92,12 @@ export default function Login({ status, canResetPassword }: Props) {
                             </Button>
                         </div>
 
-                        <div className="text-center text-sm text-muted-foreground">
+                        {/* <div className="text-center text-sm text-muted-foreground">
                             Don't have an account?{' '}
                             <TextLink href={register()} tabIndex={5}>
                                 Sign up
                             </TextLink>
-                        </div>
+                        </div> */}
                     </>
                 )}
             </Form>
@@ -112,6 +112,5 @@ export default function Login({ status, canResetPassword }: Props) {
 }
 
 Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your email and password below to log in',
+    title: 'Log in to your MIS account',
 };

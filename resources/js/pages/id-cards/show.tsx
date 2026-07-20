@@ -18,13 +18,19 @@ interface IdCard {
     signature_path: string | null; notes: string | null;
     created_by?: { name: string };
 }
-interface Props { idCard: IdCard; }
+interface Props { idCard: IdCard; template?: TemplateLayout | null; }
 interface ElemStyle { x: number; y: number; fontSize: number; width: number; color: string; bold: boolean; }
 interface ImgStyle  { x: number; y: number; w: number; h: number; }
 
 type FrontKey = 'firstName' | 'lastName' | 'positionTitle' | 'contactBlock';
 type BackKey  = 'guardianName' | 'guardianPhone' | 'address';
 type ImgKey   = 'barcode' | 'signature';
+
+interface TemplateLayout {
+    front_layout: Record<FrontKey, ElemStyle>;
+    back_layout:  Record<BackKey,  ElemStyle>;
+    img_layout:   Record<ImgKey,   ImgStyle>;
+}
 
 const FRONT_DEFAULTS: Record<FrontKey, ElemStyle> = {
     firstName:     { x: 55, y: 24, fontSize: 6,   width: 42, color: '#ffffff', bold: true  },
@@ -51,8 +57,13 @@ const SWATCHES = [
     { value: '#10b981', label: 'Green' }, { value: '#3b82f6', label: 'Blue'  },
 ];
 
+const getTecItBarcodeUrl = (code: string): string | null =>
+    code.trim()
+        ? `/barcode-image?code=${encodeURIComponent(code.trim())}`
+        : null;
+
 /* ─── Component ──────────────────────────────────────────── */
-export default function Show({ idCard }: Props) {
+export default function Show({ idCard, template }: Props) {
     const cardRef  = useRef<HTMLDivElement>(null);
     const photoRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'front' | 'back'>('front');
@@ -62,9 +73,13 @@ export default function Show({ idCard }: Props) {
         try { const r = localStorage.getItem(`idc-${k}-${idCard.id}`); if (r) return Object.fromEntries(Object.keys(d).map(key => [key, JSON.parse(r)[key] ?? (d as any)[key]])) as T; } catch {}
         return { ...d };
     };
-    const [frontPos, setFrontPos] = useState<Record<FrontKey, ElemStyle>>(() => loadPos('front', FRONT_DEFAULTS));
-    const [backPos,  setBackPos]  = useState<Record<BackKey,  ElemStyle>>(() => loadPos('back',  BACK_DEFAULTS));
-    const [imgPos,   setImgPos]   = useState<Record<ImgKey,   ImgStyle>> (() => loadPos('img',   IMG_DEFAULTS));
+    const tmplFront = (template?.front_layout as Record<FrontKey, ElemStyle> | undefined) ?? FRONT_DEFAULTS;
+    const tmplBack  = (template?.back_layout  as Record<BackKey,  ElemStyle> | undefined) ?? BACK_DEFAULTS;
+    const tmplImg   = (template?.img_layout   as Record<ImgKey,   ImgStyle>  | undefined) ?? IMG_DEFAULTS;
+
+    const [frontPos, setFrontPos] = useState<Record<FrontKey, ElemStyle>>(() => loadPos('front', tmplFront));
+    const [backPos,  setBackPos]  = useState<Record<BackKey,  ElemStyle>>(() => loadPos('back',  tmplBack));
+    const [imgPos,   setImgPos]   = useState<Record<ImgKey,   ImgStyle>> (() => loadPos('img',   tmplImg));
     useEffect(() => { try { localStorage.setItem(`idc-front-${idCard.id}`, JSON.stringify(frontPos)); } catch {} }, [frontPos, idCard.id]);
     useEffect(() => { try { localStorage.setItem(`idc-back-${idCard.id}`,  JSON.stringify(backPos));  } catch {} }, [backPos,  idCard.id]);
     useEffect(() => { try { localStorage.setItem(`idc-img-${idCard.id}`,   JSON.stringify(imgPos));   } catch {} }, [imgPos,   idCard.id]);
@@ -92,9 +107,9 @@ export default function Show({ idCard }: Props) {
     const [, setTick]   = useState(0);
 
     /* Previews */
-    const [photoPreview,     setPhotoPreview]     = useState<string|null>(idCard.photo_path     ? `/storage/${idCard.photo_path}`     : null);
-    const [barcodePreview,   setBarcodePreview]   = useState<string|null>(idCard.barcode_path   ? `/storage/${idCard.barcode_path}`   : null);
-    const [signaturePreview, setSignaturePreview] = useState<string|null>(idCard.signature_path ? `/storage/${idCard.signature_path}` : null);
+    const [photoPreview,          setPhotoPreview]          = useState<string|null>(idCard.photo_path     ? `/storage/${idCard.photo_path}`     : null);
+    const [uploadedBarcodePreview, setUploadedBarcodePreview] = useState<string|null>(null);
+    const [signaturePreview,       setSignaturePreview]       = useState<string|null>(idCard.signature_path ? `/storage/${idCard.signature_path}` : null);
 
     /* Form */
     const { data, setData, post, processing, errors } = useForm({
@@ -193,7 +208,7 @@ export default function Show({ idCard }: Props) {
 
     /* Reset */
     const resetAll = () => {
-        setFrontPos({...FRONT_DEFAULTS}); setBackPos({...BACK_DEFAULTS}); setImgPos({...IMG_DEFAULTS});
+        setFrontPos({...tmplFront}); setBackPos({...tmplBack}); setImgPos({...tmplImg});
         setPhotoCropPos({x:50,y:50}); cropHistRef.current=[];
         ['front','back','img','crop'].forEach(k=>{ try{localStorage.removeItem(`idc-${k}-${idCard.id}`);}catch{} });
     };
@@ -291,6 +306,7 @@ export default function Show({ idCard }: Props) {
     };
 
     const textPos = getTextPos();
+    const barcodeDisplaySrc = uploadedBarcodePreview ?? getTecItBarcodeUrl(data.code);
 
     return (
         <>
@@ -411,7 +427,7 @@ export default function Show({ idCard }: Props) {
                                             </div>
                                         )}
 
-                                        {renderImgElem('barcode',barcodePreview)}
+                                        {renderImgElem('barcode',barcodeDisplaySrc)}
                                         {renderImgElem('signature',signaturePreview)}
 
                                         {(Object.keys(frontPos) as FrontKey[]).map(k=>
@@ -507,9 +523,12 @@ export default function Show({ idCard }: Props) {
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <Label>Barcode Image</Label>
-                                            <input type="file" accept="image/*" onChange={mkFile('barcode',setBarcodePreview)} disabled={processing} className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"/>
-                                            {barcodePreview&&<img src={barcodePreview} alt="barcode" className="mt-1 h-12 w-auto rounded border"/>}
+                                            <Label>Barcode <span className="text-muted-foreground font-normal text-xs">(auto-generated · upload to override)</span></Label>
+                                            <p className="text-[10px] text-muted-foreground">Generated from ID Code via TEC-IT API (Code128, 270°)</p>
+                                            {barcodeDisplaySrc && (
+                                                <img src={barcodeDisplaySrc} alt="barcode preview" className="h-16 w-auto rounded border bg-white p-1"/>
+                                            )}
+                                            <input type="file" accept="image/*" onChange={mkFile('barcode',setUploadedBarcodePreview)} disabled={processing} className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"/>
                                             <InputError message={errors.barcode}/>
                                         </div>
 

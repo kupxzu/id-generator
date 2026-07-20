@@ -79,7 +79,17 @@ export default function Create() {
                                 className="font-mono"
                             />
                             <InputError message={errors.code} />
-                            <p className="text-xs text-muted-foreground">The code will be used to generate the barcode</p>
+                            <p className="text-xs text-muted-foreground">The code will be used to generate the barcode via TEC-IT API (Code128, 270°)</p>
+                            {data.code.trim() && (
+                                <div className="flex items-center gap-3 rounded-md border bg-white p-2">
+                                    <img
+                                        src={`/barcode-image?code=${encodeURIComponent(data.code.trim())}`}
+                                        alt="Barcode preview"
+                                        className="h-16 w-auto"
+                                    />
+                                    <span className="text-xs text-muted-foreground font-mono">{data.code}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Name Fields */}
