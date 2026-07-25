@@ -240,7 +240,7 @@ export default function Show({ idCard, template }: Props) {
             const { toJpeg } = await import('html-to-image');
             const dataUrl = await toJpeg(cardRef.current, { quality: 0.96, pixelRatio: 3 });
             const a = document.createElement('a');
-            a.download = `${data.first_name}_${data.last_name}_${activeTab}.jpg`;
+            a.download = `${data.first_name}_${data.last_name}_${activeTab}.png`.replace(/\s+/g,'_');
             a.href = dataUrl; a.click();
         } catch(e) { console.error(e); }
     }, [activeTab, data.first_name, data.last_name]);
