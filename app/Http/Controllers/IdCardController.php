@@ -36,7 +36,13 @@ class IdCardController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('id-cards/create');
+        $templates = DepartmentTemplate::whereIn('department', ['admin', 'hr', 'finance', 'nurse'])
+            ->get()
+            ->keyBy('department');
+
+        return Inertia::render('id-cards/create', [
+            'templates' => $templates,
+        ]);
     }
 
     /**

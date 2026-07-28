@@ -236,13 +236,16 @@ export default function Show({ idCard, template }: Props) {
     /* Export JPEG */
     const exportJpeg = useCallback(async () => {
         if (!cardRef.current) return;
+        const el = cardRef.current;
         try {
             const { toJpeg } = await import('html-to-image');
-            const dataUrl = await toJpeg(cardRef.current, { quality: 0.96, pixelRatio: 3 });
+            el.style.borderRadius = '0';
+            const dataUrl = await toJpeg(el, { quality: 0.96, pixelRatio: 3 });
+            el.style.borderRadius = '';
             const a = document.createElement('a');
             a.download = `${data.first_name}_${data.last_name}_${activeTab}.png`.replace(/\s+/g,'_');
             a.href = dataUrl; a.click();
-        } catch(e) { console.error(e); }
+        } catch(e) { el.style.borderRadius = ''; console.error(e); }
     }, [activeTab, data.first_name, data.last_name]);
 
     /* Text helpers */
@@ -453,12 +456,12 @@ export default function Show({ idCard, template }: Props) {
                     </div>
 
                     {/* ── Form panel — changes with active tab ── */}
-                    <div className="w-[360px] flex-shrink-0 overflow-auto border-l bg-background">
+                    <div className="w-[340px] flex-shrink-0 overflow-auto border-l bg-background">
                         <form onSubmit={submit}>
-                            <div className="space-y-4 p-5">
+                            <div className="space-y-2 p-3">
 
                                 {/* Department always visible */}
-                                <div className="space-y-1.5">
+                                <div className="space-y-1">
                                     <Label htmlFor="dept">Department</Label>
                                     <select id="dept" value={data.department} onChange={e=>setData('department',e.target.value)} disabled={processing}
                                         className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
@@ -471,75 +474,73 @@ export default function Show({ idCard, template }: Props) {
                                     <>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1">Front Card Fields</p>
 
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1">
                                             <Label htmlFor="code">ID Code</Label>
                                             <Input id="code" value={data.code} onChange={e=>setData('code',e.target.value)} disabled={processing} className="font-mono text-sm"/>
                                             <InputError message={errors.code}/>
-                                            <p className="text-xs text-muted-foreground">Changing code regenerates barcode</p>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="first_name">First Name</Label>
                                                 <Input id="first_name" value={data.first_name} onChange={e=>setData('first_name',e.target.value)} disabled={processing}/>
                                                 <InputError message={errors.first_name}/>
                                             </div>
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="last_name">Last Name</Label>
                                                 <Input id="last_name" value={data.last_name} onChange={e=>setData('last_name',e.target.value)} disabled={processing}/>
                                                 <InputError message={errors.last_name}/>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1">
                                             <Label htmlFor="position">Position / Title</Label>
                                             <Input id="position" value={data.position} onChange={e=>setData('position',e.target.value)} disabled={processing} placeholder="e.g., Nurse, Staff, Doctor"/>
                                             <InputError message={errors.position}/>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="email">Email</Label>
                                                 <Input id="email" type="email" value={data.email} onChange={e=>setData('email',e.target.value)} disabled={processing}/>
                                                 <InputError message={errors.email}/>
                                             </div>
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="phone">Phone</Label>
                                                 <Input id="phone" value={data.phone} onChange={e=>setData('phone',e.target.value)} disabled={processing}/>
                                                 <InputError message={errors.phone}/>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1">
                                             <Label htmlFor="group">Group</Label>
                                             <Input id="group" value={data.group} onChange={e=>setData('group',e.target.value)} disabled={processing}/>
                                             <InputError message={errors.group}/>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label>Photo <span className="text-muted-foreground font-normal text-xs">(double-click on card to crop)</span></Label>
+                                        <div className="space-y-1">
+                                            <Label>Photo <span className="text-muted-foreground font-normal text-xs">(double-click card to crop)</span></Label>
                                             <input type="file" accept="image/*" onChange={mkFile('photo',setPhotoPreview)} disabled={processing} className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"/>
                                             <InputError message={errors.photo}/>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label>Barcode <span className="text-muted-foreground font-normal text-xs">(auto-generated · upload to override)</span></Label>
-                                            <p className="text-[10px] text-muted-foreground">Generated from ID Code via TEC-IT API (Code128, 270°)</p>
+                                        <div className="space-y-1">
+                                            <Label>Barcode <span className="text-muted-foreground font-normal text-xs">(auto · upload to override)</span></Label>
                                             {barcodeDisplaySrc && (
-                                                <img src={barcodeDisplaySrc} alt="barcode preview" className="h-16 w-auto rounded border bg-white p-1"/>
+                                                <img src={barcodeDisplaySrc} alt="barcode preview" className="h-10 w-auto rounded border bg-white p-1"/>
                                             )}
                                             <input type="file" accept="image/*" onChange={mkFile('barcode',setUploadedBarcodePreview)} disabled={processing} className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"/>
                                             <InputError message={errors.barcode}/>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label>Signature Image <span className="text-muted-foreground font-normal text-xs">(appears on front card)</span></Label>
+                                        <div className="space-y-1">
+                                            <Label>Signature <span className="text-muted-foreground font-normal text-xs">(front card)</span></Label>
                                             <input type="file" accept="image/*" onChange={mkFile('signature',setSignaturePreview)} disabled={processing} className="block w-full cursor-pointer text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"/>
-                                            {signaturePreview&&<img src={signaturePreview} alt="signature" className="mt-1 h-12 w-auto rounded border"/>}
+                                            {signaturePreview&&<img src={signaturePreview} alt="signature" className="mt-0.5 h-10 w-auto rounded border"/>}
                                             <InputError message={errors.signature}/>
                                         </div>
 
-                                        <div className="space-y-1.5">
+                                        <div className="space-y-1">
                                             <Label htmlFor="notes">Notes</Label>
                                             <Textarea id="notes" value={data.notes} onChange={e=>setData('notes',e.target.value)} disabled={processing} rows={2} placeholder="Additional notes…"/>
                                             <InputError message={errors.notes}/>
@@ -549,21 +550,21 @@ export default function Show({ idCard, template }: Props) {
                                     <>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-b pb-1">Back Card Fields</p>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="guardian_name">Guardian Name</Label>
                                                 <Input id="guardian_name" value={data.guardian_name} onChange={e=>setData('guardian_name',e.target.value)} disabled={processing} placeholder="Juan dela Cruz"/>
                                                 <InputError message={errors.guardian_name}/>
                                             </div>
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1">
                                                 <Label htmlFor="guardian_phone">Guardian Phone</Label>
                                                 <Input id="guardian_phone" value={data.guardian_phone} onChange={e=>setData('guardian_phone',e.target.value)} disabled={processing}/>
                                                 <InputError message={errors.guardian_phone}/>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="address">Address <span className="text-muted-foreground font-normal text-xs">(Enter for new line, centered)</span></Label>
+                                        <div className="space-y-1">
+                                            <Label htmlFor="address">Address <span className="text-muted-foreground font-normal text-xs">(Enter = new line, centered)</span></Label>
                                             <Textarea id="address" value={data.address} onChange={e=>setData('address',e.target.value)} disabled={processing} rows={3} placeholder={"#15 Street Name\nCity, Province"}/>
                                             <InputError message={errors.address}/>
                                         </div>
